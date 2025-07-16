@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simplex Noise</title>
+  <title>Random Simplex Noise Biome Generator</title>
   <style>
     body {
       margin: 0;
@@ -13,7 +13,6 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
     }
     canvas {
       border: 2px solid #ccc;
@@ -45,14 +44,16 @@
   <h1>Simplex Noise Biome Generator</h1>
   <canvas id="map" width="512" height="512"></canvas>
   <div id="controls">
-    <button onclick="generateNewMap()">Generate New Map</button>
-    <div id="seed"></div>
+    <button id="regen">Generate New Map</button>
+    <div id="seed">Seed: </div>
   </div>
 
-  <!-- SeedRandom library -->
+  <!-- Seedrandom (for deterministic randomness) -->
   <script>
     (function(f,a,c){var s,l=256,p="random",d=a.pow(l,6),g=a.pow(2,52),y=2*g,h=l-1;function n(n,t,r){function e(){for(var n=u.g(6),t=d,r=0;n<g;)n=(n+r)*l,t*=l,r=u.g(1);for(;y<=n;)n/=2,t/=2,r>>>=1;return(n+r)/t}var u=[],o=j(function n(t,r){var e,o=[],i=typeof t;if(r&&"object"==i)for(e in t)try{o.push(n(t[e],r-1))}catch(n){}return o.length?o:"string"==i?t:t+"\0"}((t=1==t?{entropy:!0}:t||{}).entropy?[n,m(a)]:null==n?function(){try{if(s)return m(s.randomBytes(l));var n=new Uint8Array(l);return(crypto||self.crypto).getRandomValues(n),m(n)}catch(n){var t=[];return Array(l).join(",").replace(/./g,function(){return t.push(256*a.random()|0)}),m(t)}}():n,3),u),i=new S(u);return e.int32=function(){return 0|u.g(4)},e.quick=function(){return u.g(4)/4294967296},e.double=e,j(m(i.S),a)}function j(n,t){return n.reduce(function(n,t){return n+"-"+t.toString(16)},"")}function m(n){return String.fromCharCode.apply(0,n)}function S(n){var t,r=n.length,u=this,e=0,o=u.i=u.j=0,i=u.S=[];for(r||(n=[r++]);e<l;)i[e]=e++;for(e=0;e<l;e++)i[e]=i[o=h&o+n[e%r]],i[o]=[i[o],i[e]];u.g=function(n){for(var t,r=0,e=u.i,o=u.j,i=u.S;n--;)t=i[e=h&e+1],r=r*l+i[h&(i[e]=i[o=h&o+t])+(i[o]=t)];return u.i=e,u.j=o,r}}try{if("object"==typeof module&&module.exports){module.exports=n;try{s=require("crypto")}catch(n){}}else"function"==typeof define&&define.amd?define(function(){return n}):this.seedrandom=n}catch(n){}})([],Math);
   </script>
+
+  <!-- Simplex noise and drawing -->
   <script>
     class SimplexNoise {
       constructor(random = Math) {
@@ -99,63 +100,61 @@
       }
     }
 
-    const canvas = document.getElementById("map");
-    const ctx = canvas.getContext("2d");
-    const width = canvas.width, height = canvas.height;
-    const scale = 0.01;
+    window.onload = () => {
+      const canvas = document.getElementById("map");
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width, height = canvas.height;
+      const scale = 0.01;
 
-    function getBiome(elev, humidity, riverFactor) {
-      if (elev < 0.2) return [0, 0, 80];            // Deep Sea
-      if (elev < 0.3) return [0, 0, 120];           // Sea
-      if (elev < 0.35) return [0, 50, 160];         // Shallow Sea
-      if (riverFactor > 0.15 && elev < 0.6) return [30, 144, 255]; // River
-      if (elev < 0.45) return humidity > 0.5 ? [85, 107, 47] : [189, 183, 107]; // Grassland / Savanna
-      if (elev < 0.6)  return humidity > 0.5 ? [34, 139, 34] : [222, 184, 135]; // Forest / Drylands
-      if (elev < 0.75) return humidity > 0.5 ? [64, 160, 64] : [160, 160, 90];  // Hills
-      if (elev < 0.9)  return [120, 120, 120];         // Mountain
-      return [250, 250, 250];                          // Snow cap
-    }
-
-    function drawMap(seed) {
-      const randElev = new Math.seedrandom(seed);
-      const randHumid = new Math.seedrandom(seed + "-humid");
-
-      const noiseElev = new SimplexNoise(randElev);
-      const noiseHumid = new SimplexNoise(randHumid);
-      const imgData = ctx.createImageData(width, height);
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const nx = x * scale, ny = y * scale;
-          const elev = (noiseElev.noise(nx, ny) + 1) / 2;
-          const humid = (noiseHumid.noise(nx, ny) + 1) / 2;
-
-          const humidDx = (noiseHumid.noise(nx + 0.01, ny) + 1) / 2 - humid;
-          const humidDy = (noiseHumid.noise(nx, ny + 0.01) + 1) / 2 - humid;
-          const riverFactor = Math.abs(humidDx) + Math.abs(humidDy);
-
-          const [r, g, b] = getBiome(elev, humid, riverFactor);
-          const i = (x + y * width) * 4;
-          imgData.data[i] = r;
-          imgData.data[i + 1] = g;
-          imgData.data[i + 2] = b;
-          imgData.data[i + 3] = 255;
-        }
+      function getBiome(elev, humidity, riverFactor) {
+        if (elev < 0.2) return [0, 0, 80];            // Deep Sea
+        if (elev < 0.3) return [0, 0, 120];           // Sea
+        if (elev < 0.35) return [0, 50, 160];         // Shallow Sea
+        if (riverFactor > 0.15 && elev < 0.6) return [30, 144, 255]; // River
+        if (elev < 0.45) return humidity > 0.5 ? [85, 107, 47] : [189, 183, 107]; // Grassland / Savanna
+        if (elev < 0.6)  return humidity > 0.5 ? [34, 139, 34] : [222, 184, 135]; // Forest / Drylands
+        if (elev < 0.75) return humidity > 0.5 ? [64, 160, 64] : [160, 160, 90];  // Hills
+        if (elev < 0.9)  return [120, 120, 120];         // Mountain
+        return [250, 250, 250];                          // Snow cap
       }
 
-      ctx.putImageData(imgData, 0, 0);
-      document.getElementById("seed").textContent = "Seed: " + seed;
-    }
+      function drawMap(seed) {
+        const randElev = new Math.seedrandom(seed);
+        const randHumid = new Math.seedrandom(seed + "-humid");
+        const noiseElev = new SimplexNoise(randElev);
+        const noiseHumid = new SimplexNoise(randHumid);
+        const imgData = ctx.createImageData(width, height);
 
-    function generateNewMap() {
-      const newSeed = Math.floor(Math.random() * 1000000).toString();
-      drawMap(newSeed);
-    }
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const nx = x * scale, ny = y * scale;
+            const elev = (noiseElev.noise(nx, ny) + 1) / 2;
+            const humid = (noiseHumid.noise(nx, ny) + 1) / 2;
+            const humidDx = (noiseHumid.noise(nx + 0.01, ny) + 1) / 2 - humid;
+            const humidDy = (noiseHumid.noise(nx, ny + 0.01) + 1) / 2 - humid;
+            const riverFactor = Math.abs(humidDx) + Math.abs(humidDy);
+            const [r, g, b] = getBiome(elev, humid, riverFactor);
+            const i = (x + y * width) * 4;
+            imgData.data[i] = r;
+            imgData.data[i + 1] = g;
+            imgData.data[i + 2] = b;
+            imgData.data[i + 3] = 255;
+          }
+        }
 
-    // Initial draw
-    generateNewMap();
+        ctx.putImageData(imgData, 0, 0);
+        document.getElementById("seed").textContent = "Seed: " + seed;
+      }
+
+      function generateNewMap() {
+        const newSeed = Math.floor(Math.random() * 1000000).toString();
+        drawMap(newSeed);
+      }
+
+      // Initial map
+      generateNewMap();
+      document.getElementById("regen").onclick = generateNewMap;
+    };
   </script>
 </body>
 </html>
-
-  
