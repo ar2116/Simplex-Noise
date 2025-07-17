@@ -122,8 +122,8 @@
 
     function drawMap(seed) {
       document.getElementById("seed").textContent = "Seed: " + seed;
-      const randElev = Math.seedrandom(seed);
-      const randHumid = Math.seedrandom(seed + "humid");
+      const randElev = seedrandom(seed);
+      const randHumid = seedrandom(seed + "humid");
       const noiseElev = new SimplexNoise(randElev);
       const noiseHumid = new SimplexNoise(randHumid);
       const imageData = ctx.createImageData(width, height);
