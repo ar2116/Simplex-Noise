@@ -1,166 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simplex Noise Generator</title>
-  <style>
-    body {
-      margin: 0;
-      background: #111;
-      color: #eee;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    canvas {
-      border: 2px solid #ccc;
-      margin-top: 20px;
-    }
-    #controls {
-      margin-top: 10px;
-      text-align: center;
-    }
-    button {
-      padding: 8px 16px;
-      background: #333;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #seed {
-      margin-top: 8px;
-      font-size: 0.9em;
-      color: #ccc;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Simplex Noise Biome Generator</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Simplex Noise Generator</h1>
-  <canvas id="map" width="512" height="512"></canvas>
-  <div id="controls">
-    <button id="generate">Generate New Map</button>
-    <div id="seed">Seed:</div>
-  </div>
-
-  <!-- Seedrandom.js -->
-  <script src="RSeed.js"></script>
-
-  <!-- Simplex Noise Class -->
-  <script>
-    class SimplexNoise {
-      constructor(random = Math) {
-        this.p = new Uint8Array(256);
-        for (let i = 0; i < 256; i++) this.p[i] = i;
-        for (let i = 255; i > 0; i--) {
-          const j = Math.floor(random.random() * (i + 1));
-          [this.p[i], this.p[j]] = [this.p[j], this.p[i]];
-        }
-        this.perm = new Uint8Array(512);
-        for (let i = 0; i < 512; i++) this.perm[i] = this.p[i & 255];
-      }
-      dot(g, x, y) {
-        return g[0] * x + g[1] * y;
-      }
-      noise(xin, yin) {
-        const grad3 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
-        const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
-        const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
-        let n0, n1, n2;
-        let s = (xin + yin) * F2;
-        let i = Math.floor(xin + s);
-        let j = Math.floor(yin + s);
-        let t = (i + j) * G2;
-        let X0 = i - t;
-        let Y0 = j - t;
-        let x0 = xin - X0;
-        let y0 = yin - Y0;
-        let i1, j1;
-        if (x0 > y0) { i1 = 1; j1 = 0; }
-        else { i1 = 0; j1 = 1; }
-        let x1 = x0 - i1 + G2;
-        let y1 = y0 - j1 + G2;
-        let x2 = x0 - 1.0 + 2.0 * G2;
-        let y2 = y0 - 1.0 + 2.0 * G2;
-        let ii = i & 255;
-        let jj = j & 255;
-        let gi0 = this.perm[ii + this.perm[jj]] % 8;
-        let gi1 = this.perm[ii + i1 + this.perm[jj + j1]] % 8;
-        let gi2 = this.perm[ii + 1 + this.perm[jj + 1]] % 8;
-        let t0 = 0.5 - x0*x0 - y0*y0;
-        n0 = t0 < 0 ? 0 : (t0 *= t0, t0 * t0 * this.dot(grad3[gi0], x0, y0));
-        let t1 = 0.5 - x1*x1 - y1*y1;
-        n1 = t1 < 0 ? 0 : (t1 *= t1, t1 * t1 * this.dot(grad3[gi1], x1, y1));
-        let t2 = 0.5 - x2*x2 - y2*y2;
-        n2 = t2 < 0 ? 0 : (t2 *= t2, t2 * t2 * this.dot(grad3[gi2], x2, y2));
-        return 70.0 * (n0 + n1 + n2);
-      }
-    }
-  </script>
-
-  <!-- Main Script -->
-  <script>
-    const canvas = document.getElementById("map");
-    const ctx = canvas.getContext("2d");
-    const width = canvas.width;
-    const height = canvas.height;
-    const scale = 0.01;
-
-    function getBiome(elev, humid, riverFactor) {
-      if (elev < 0.2) return [0, 0, 80];           // Deep Sea
-      if (elev < 0.3) return [0, 0, 120];          // Sea
-      if (elev < 0.35) return [0, 50, 160];        // Shallow Sea
-      if (riverFactor > 0.15 && elev < 0.6) return [30, 144, 255]; // River
-      if (elev < 0.45) return humid > 0.5 ? [85, 107, 47] : [189, 183, 107]; // Grassland / Savanna
-      if (elev < 0.6)  return humid > 0.5 ? [34, 139, 34] : [222, 184, 135]; // Forest / Drylands
-      if (elev < 0.75) return humid > 0.5 ? [64, 160, 64] : [160, 160, 90];  // Hills
-      if (elev < 0.9)  return [120, 120, 120];       // Mountain
-      return [255, 255, 255];                        // Snow
-    }
-
-    function drawMap(seed) {
-      document.getElementById("seed").textContent = "Seed: " + seed;
-      const randElev = seedrandom(seed);
-      const randHumid = seedrandom(seed + "humid");
-      const noiseElev = new SimplexNoise(randElev);
-      const noiseHumid = new SimplexNoise(randHumid);
-      const imageData = ctx.createImageData(width, height);
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const nx = x * scale;
-          const ny = y * scale;
-          const elev = (noiseElev.noise(nx, ny) + 1) / 2;
-          const humid = (noiseHumid.noise(nx, ny) + 1) / 2;
-          const humidDx = (noiseHumid.noise(nx + 0.01, ny) + 1) / 2 - humid;
-          const humidDy = (noiseHumid.noise(nx, ny + 0.01) + 1) / 2 - humid;
-          const riverFactor = Math.abs(humidDx) + Math.abs(humidDy);
-          const [r, g, b] = getBiome(elev, humid, riverFactor);
-          const idx = (x + y * width) * 4;
-          imageData.data[idx] = r;
-          imageData.data[idx + 1] = g;
-          imageData.data[idx + 2] = b;
-          imageData.data[idx + 3] = 255;
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-    }
-
-    function generateNewMap() {
-      const seed = Math.floor(Math.random() * 1000000).toString();
-      drawMap(seed);
-    }
-
-    // Event listener
-    document.getElementById("generate").addEventListener("click", generateNewMap);
-
-    // Initial draw
-    generateNewMap();
-  </script>
+    <div class="container">
+        <div class="controls">
+            <label for="seed">Seed:</label>
+            <input type="number" id="seed" value="42">
+            <button id="generate">Generate New Map</button>
+        </div>
+        <canvas id="terrainCanvas"></canvas>
+        <div class="biome-legend">
+            <h3>Biomes:</h3>
+            <div id="biome-list"></div>
+        </div>
+    </div>
+    <script src="simplex-noise.js"></script>
+    <script src="biome-generator.js"></script>
 </body>
-</html>
-
 </html>
