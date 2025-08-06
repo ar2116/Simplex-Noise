@@ -1,0 +1,38 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+canvas {
+    border: 1px solid #333;
+    margin-bottom: 20px;
+}
+
+.biome-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#biome-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.biome-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.biome-color {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #333;
+}
