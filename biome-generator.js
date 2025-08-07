@@ -21,7 +21,7 @@ class BiomeGenerator {
             { name: 'Snow', color: '#FFFFFF' },
             { name: 'Mountain', color: '#808080' },
             { name: 'High Mountain', color: '#A9A9A9' },
-            { name: 'Volcano', color: '#8B0000' },
+            { name: 'Snow Capped Mountain', color: '#eeeeff' },
             { name: 'Savanna', color: '#DAA520' },
             { name: 'Swamp', color: '#2F4F4F' },
             { name: 'Taiga', color: '#90EE90' }
@@ -124,7 +124,7 @@ class BiomeGenerator {
         if (height < 0.32) return this.biomes[2]; // Beach
 
         if (height > 0.8) {
-            if (height > 0.9) return this.biomes[11]; // Volcano
+            if (height > 0.95) return this.biomes[11]; // Snowcapped Mountain
             if (temp < 0.2) return this.biomes[8]; // Snow
             return this.biomes[10]; // High Mountain
         }
