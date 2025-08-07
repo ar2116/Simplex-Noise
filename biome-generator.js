@@ -1,42 +1,40 @@
 class BiomeGenerator {
     constructor() {
-        this.width = 1200;
-        this.height = 800;
+        // Set up canvas
         this.canvas = document.getElementById('terrainCanvas');
         this.ctx = this.canvas.getContext('2d');
+        this.width = 1200;
+        this.height = 800;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
-        this.loadingOverlay = document.getElementById('loadingOverlay');
 
+        // Define biomes with clear, distinct colors
         this.biomes = [
-            { name: 'Frozen Desert', color: '#e8e8e8' },
-            { name: 'Tundra', color: '#dddddd' },
-            { name: 'Taiga', color: '#ccd4bc' },
-            { name: 'Alpine', color: '#6c6c6c' },
-            { name: 'Desert', color: '#e4d5a7' },
-            { name: 'Savanna', color: '#c5b68d' },
-            { name: 'Grassland', color: '#90af7d' },
-            { name: 'Temperate Forest', color: '#4b7337' },
-            { name: 'Tropical Forest', color: '#2d4f1e' },
-            { name: 'Rainforest', color: '#1b3312' },
-            { name: 'Swamp', color: '#4b4f3a' },
-            { name: 'Ocean', color: '#1e4d6d' },
-            { name: 'Beach', color: '#e6d9ad' },
-            { name: 'Snow Peak', color: '#ffffff' },
-            { name: 'Rocky Mountain', color: '#7a7a7a' }
+            { name: 'Deep Ocean', color: '#000080' },
+            { name: 'Ocean', color: '#0000FF' },
+            { name: 'Beach', color: '#FFE4B5' },
+            { name: 'Desert', color: '#FFD700' },
+            { name: 'Grassland', color: '#32CD32' },
+            { name: 'Forest', color: '#228B22' },
+            { name: 'Rainforest', color: '#006400' },
+            { name: 'Tundra', color: '#F0FFFF' },
+            { name: 'Snow', color: '#FFFFFF' },
+            { name: 'Mountain', color: '#808080' },
+            { name: 'High Mountain', color: '#A9A9A9' },
+            { name: 'Volcano', color: '#8B0000' },
+            { name: 'Savanna', color: '#DAA520' },
+            { name: 'Swamp', color: '#2F4F4F' },
+            { name: 'Taiga', color: '#90EE90' }
         ];
 
         this.setupEventListeners();
         this.createBiomeLegend();
-        
-        // Ensure initial generation happens after DOM is fully loaded
-        requestAnimationFrame(() => this.generate());
+        this.generate();
     }
 
     setupEventListeners() {
-        document.getElementById('generate').addEventListener('click', () => {
-            this.generate();
-        });
+        const generateBtn = document.getElementById('generate');
+        generateBtn.addEventListener('click', () => this.generate());
     }
 
     createBiomeLegend() {
@@ -44,8 +42,8 @@ class BiomeGenerator {
         biomeList.innerHTML = '';
         
         this.biomes.forEach(biome => {
-            const biomeItem = document.createElement('div');
-            biomeItem.className = 'biome-item';
+            const item = document.createElement('div');
+            item.className = 'biome-item';
             
             const colorBox = document.createElement('div');
             colorBox.className = 'biome-color';
@@ -55,129 +53,113 @@ class BiomeGenerator {
             name.className = 'biome-name';
             name.textContent = biome.name;
             
-            biomeItem.appendChild(colorBox);
-            biomeItem.appendChild(name);
-            biomeList.appendChild(biomeItem);
+            item.appendChild(colorBox);
+            item.appendChild(name);
+            biomeList.appendChild(item);
         });
     }
 
-    async generate() {
-        try {
-            this.loadingOverlay.style.display = 'flex';
-            const seed = parseInt(document.getElementById('seed').value) || Math.floor(Math.random() * 65536);
-            
-            // Clear the canvas first
-            this.ctx.clearRect(0, 0, this.width, this.height);
-            
-            await this.generateTerrain(seed);
-        } catch (error) {
-            console.error('Error generating terrain:', error);
-        } finally {
-            this.loadingOverlay.style.display = 'none';
-        }
-    }
+    generate() {
+        const seed = parseInt(document.getElementById('seed').value) || Math.floor(Math.random() * 10000);
+        console.log('Generating map with seed:', seed);
 
-    async generateTerrain(seed) {
+        // Create noise generators
         const heightNoise = new SimplexNoise(seed);
         const tempNoise = new SimplexNoise(seed + 1);
         const humidityNoise = new SimplexNoise(seed + 2);
-        
+
+        // Create image data
         const imageData = this.ctx.createImageData(this.width, this.height);
-        const data = imageData.data;
 
-        for(let y = 0; y < this.height; y++) {
-            if(y % 50 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
-
-            for(let x = 0; x < this.width; x++) {
-                // Normalize coordinates
+        // Generate terrain
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                // Generate noise values
                 const nx = x / this.width;
                 const ny = y / this.height;
                 
-                // Generate noise values with different scales
-                const height = this.getNormalizedNoise(heightNoise, nx, ny, 0.5);
-                const temperature = this.getNormalizedNoise(tempNoise, nx, ny, 0.3);
-                const humidity = this.getNormalizedNoise(humidityNoise, nx, ny, 0.4);
-                
-                const biome = this.getBiome(height, temperature, humidity);
+                const height = this.getNoiseValue(heightNoise, nx, ny, 5);
+                const temp = this.getNoiseValue(tempNoise, nx, ny, 3);
+                const humidity = this.getNoiseValue(humidityNoise, nx, ny, 4);
+
+                // Get biome color
+                const biome = this.getBiome(height, temp, humidity);
                 const color = this.hexToRgb(biome.color);
-                
+
+                // Set pixel color
                 const index = (y * this.width + x) * 4;
-                data[index] = color.r;
-                data[index + 1] = color.g;
-                data[index + 2] = color.b;
-                data[index + 3] = 255;
+                imageData.data[index] = color.r;
+                imageData.data[index + 1] = color.g;
+                imageData.data[index + 2] = color.b;
+                imageData.data[index + 3] = 255;
             }
         }
-        
+
+        // Draw the image data to the canvas
         this.ctx.putImageData(imageData, 0, 0);
+        console.log('Map generation complete');
     }
 
-    getNormalizedNoise(noise, x, y, scale) {
-        // Multiple octaves of noise for more natural looking terrain
+    getNoiseValue(noise, x, y, scale) {
+        const octaves = 4;
         let value = 0;
-        let amplitude = 1;
-        let frequency = 1;
+        let amp = 1;
+        let freq = 1;
         let maxValue = 0;
-        
-        for(let i = 0; i < 4; i++) {
-            value += amplitude * (noise.noise2D(x * frequency / scale, y * frequency / scale) * 0.5 + 0.5);
-            maxValue += amplitude;
-            amplitude *= 0.5;
-            frequency *= 2;
+
+        for (let i = 0; i < octaves; i++) {
+            value += amp * noise.noise2D(x * freq * scale, y * freq * scale);
+            maxValue += amp;
+            amp *= 0.5;
+            freq *= 2;
         }
-        
-        return value / maxValue;
+
+        // Normalize to 0-1 range
+        return (value / maxValue + 1) / 2;
     }
 
-    getBiome(height, temperature, humidity) {
-        if(height > 0.8) {
-            return temperature < 0.2 ? this.biomes[13] : this.biomes[14];
+    getBiome(height, temp, humidity) {
+        if (height < 0.2) return this.biomes[0]; // Deep Ocean
+        if (height < 0.3) return this.biomes[1]; // Ocean
+        if (height < 0.32) return this.biomes[2]; // Beach
+
+        if (height > 0.8) {
+            if (height > 0.9) return this.biomes[11]; // Volcano
+            if (temp < 0.2) return this.biomes[8]; // Snow
+            return this.biomes[10]; // High Mountain
         }
-        
-        if(height < 0.3) {
-            return this.biomes[11];
+
+        if (height > 0.6) return this.biomes[9]; // Mountain
+
+        if (temp < 0.2) return this.biomes[7]; // Tundra
+        if (temp < 0.4) return this.biomes[14]; // Taiga
+
+        if (temp > 0.8) {
+            if (humidity < 0.3) return this.biomes[3]; // Desert
+            if (humidity > 0.6) return this.biomes[6]; // Rainforest
+            return this.biomes[12]; // Savanna
         }
-        
-        if(height < 0.35) {
-            return this.biomes[12];
+
+        if (humidity > 0.6) {
+            if (temp > 0.6) return this.biomes[13]; // Swamp
+            return this.biomes[5]; // Forest
         }
-        
-        if(temperature < 0.2) {
-            return humidity < 0.5 ? this.biomes[0] : this.biomes[1];
-        }
-        
-        if(temperature < 0.4) {
-            return this.biomes[2];
-        }
-        
-        if(height > 0.6) {
-            return this.biomes[3];
-        }
-        
-        if(temperature > 0.8) {
-            if(humidity < 0.2) return this.biomes[4];
-            if(humidity < 0.4) return this.biomes[5];
-            return humidity > 0.8 ? this.biomes[9] : this.biomes[8];
-        }
-        
-        if(humidity < 0.4) return this.biomes[6];
-        if(humidity < 0.8) return this.biomes[7];
-        return this.biomes[10];
+
+        return this.biomes[4]; // Grassland
     }
 
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
+        return {
             r: parseInt(result[1], 16),
             g: parseInt(result[2], 16),
             b: parseInt(result[3], 16)
-        } : null;
+        };
     }
 }
 
-// Initialize the generator when the page loads
+// Initialize when the page loads
 window.addEventListener('load', () => {
+    console.log('Initializing BiomeGenerator');
     new BiomeGenerator();
 });
