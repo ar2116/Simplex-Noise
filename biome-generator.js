@@ -1,6 +1,5 @@
 class BiomeGenerator {
     constructor() {
-        // Increased canvas size
         this.width = 1200;
         this.height = 800;
         this.canvas = document.getElementById('terrainCanvas');
@@ -29,7 +28,9 @@ class BiomeGenerator {
 
         this.setupEventListeners();
         this.createBiomeLegend();
-        this.generate();
+        
+        // Ensure initial generation happens after DOM is fully loaded
+        requestAnimationFrame(() => this.generate());
     }
 
     setupEventListeners() {
@@ -40,7 +41,7 @@ class BiomeGenerator {
 
     createBiomeLegend() {
         const biomeList = document.getElementById('biome-list');
-        biomeList.innerHTML = ''; // Clear existing items
+        biomeList.innerHTML = '';
         
         this.biomes.forEach(biome => {
             const biomeItem = document.createElement('div');
@@ -61,17 +62,19 @@ class BiomeGenerator {
     }
 
     async generate() {
-        this.loadingOverlay.style.display = 'flex';
-        const seed = parseInt(document.getElementById('seed').value) || Math.random() * 65536;
-        
-        // Use setTimeout to allow the loading overlay to appear
-        setTimeout(async () => {
-            try {
-                await this.generateTerrain(seed);
-            } finally {
-                this.loadingOverlay.style.display = 'none';
-            }
-        }, 0);
+        try {
+            this.loadingOverlay.style.display = 'flex';
+            const seed = parseInt(document.getElementById('seed').value) || Math.floor(Math.random() * 65536);
+            
+            // Clear the canvas first
+            this.ctx.clearRect(0, 0, this.width, this.height);
+            
+            await this.generateTerrain(seed);
+        } catch (error) {
+            console.error('Error generating terrain:', error);
+        } finally {
+            this.loadingOverlay.style.display = 'none';
+        }
     }
 
     async generateTerrain(seed) {
@@ -80,27 +83,31 @@ class BiomeGenerator {
         const humidityNoise = new SimplexNoise(seed + 2);
         
         const imageData = this.ctx.createImageData(this.width, this.height);
-        const chunkSize = 100; // Process in chunks to prevent blocking
+        const data = imageData.data;
 
         for(let y = 0; y < this.height; y++) {
-            if(y % chunkSize === 0) {
-                // Allow other tasks to run between chunks
+            if(y % 50 === 0) {
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
 
             for(let x = 0; x < this.width; x++) {
-                const height = this.getNormalizedNoise(heightNoise, x, y, 150);
-                const temperature = this.getNormalizedNoise(tempNoise, x, y, 200);
-                const humidity = this.getNormalizedNoise(humidityNoise, x, y, 180);
+                // Normalize coordinates
+                const nx = x / this.width;
+                const ny = y / this.height;
+                
+                // Generate noise values with different scales
+                const height = this.getNormalizedNoise(heightNoise, nx, ny, 0.5);
+                const temperature = this.getNormalizedNoise(tempNoise, nx, ny, 0.3);
+                const humidity = this.getNormalizedNoise(humidityNoise, nx, ny, 0.4);
                 
                 const biome = this.getBiome(height, temperature, humidity);
                 const color = this.hexToRgb(biome.color);
                 
                 const index = (y * this.width + x) * 4;
-                imageData.data[index] = color.r;
-                imageData.data[index + 1] = color.g;
-                imageData.data[index + 2] = color.b;
-                imageData.data[index + 3] = 255;
+                data[index] = color.r;
+                data[index + 1] = color.g;
+                data[index + 2] = color.b;
+                data[index + 3] = 255;
             }
         }
         
@@ -108,56 +115,56 @@ class BiomeGenerator {
     }
 
     getNormalizedNoise(noise, x, y, scale) {
-        // Added octaves for more natural-looking terrain
+        // Multiple octaves of noise for more natural looking terrain
         let value = 0;
         let amplitude = 1;
         let frequency = 1;
         let maxValue = 0;
         
         for(let i = 0; i < 4; i++) {
-            value += amplitude * noise.noise2D(x * frequency / scale, y * frequency / scale);
+            value += amplitude * (noise.noise2D(x * frequency / scale, y * frequency / scale) * 0.5 + 0.5);
             maxValue += amplitude;
             amplitude *= 0.5;
             frequency *= 2;
         }
         
-        return (value / maxValue + 1) / 2;
+        return value / maxValue;
     }
 
     getBiome(height, temperature, humidity) {
         if(height > 0.8) {
-            return temperature < 0.2 ? this.biomes[13] : this.biomes[14]; // Snow Peak or Rocky Mountain
+            return temperature < 0.2 ? this.biomes[13] : this.biomes[14];
         }
         
         if(height < 0.3) {
-            return this.biomes[11]; // Ocean
+            return this.biomes[11];
         }
         
         if(height < 0.35) {
-            return this.biomes[12]; // Beach
+            return this.biomes[12];
         }
         
         if(temperature < 0.2) {
-            return humidity < 0.5 ? this.biomes[0] : this.biomes[1]; // Frozen Desert or Tundra
+            return humidity < 0.5 ? this.biomes[0] : this.biomes[1];
         }
         
         if(temperature < 0.4) {
-            return this.biomes[2]; // Taiga
+            return this.biomes[2];
         }
         
         if(height > 0.6) {
-            return this.biomes[3]; // Alpine
+            return this.biomes[3];
         }
         
         if(temperature > 0.8) {
-            if(humidity < 0.2) return this.biomes[4]; // Desert
-            if(humidity < 0.4) return this.biomes[5]; // Savanna
-            return humidity > 0.8 ? this.biomes[9] : this.biomes[8]; // Rainforest or Tropical Forest
+            if(humidity < 0.2) return this.biomes[4];
+            if(humidity < 0.4) return this.biomes[5];
+            return humidity > 0.8 ? this.biomes[9] : this.biomes[8];
         }
         
-        if(humidity < 0.4) return this.biomes[6]; // Grassland
-        if(humidity < 0.8) return this.biomes[7]; // Temperate Forest
-        return this.biomes[10]; // Swamp
+        if(humidity < 0.4) return this.biomes[6];
+        if(humidity < 0.8) return this.biomes[7];
+        return this.biomes[10];
     }
 
     hexToRgb(hex) {
